@@ -2,7 +2,7 @@
 
 export interface OcSession {
   id: string
-  slug: string
+  slug?: string
   projectID: string
   title: string
   directory: string
@@ -10,12 +10,16 @@ export interface OcSession {
 }
 
 // ─── Message parts ───────────────────────────────────────────────────────────
+// These types optionally carry messageID / sessionID so SDK-sourced parts
+// (which always include them) are assignable to OcPartType.
 
 export interface OcTextPart {
   type: 'text'
   id: string
   text: string
-  time?: { created: number; completed?: number }
+  messageID?: string
+  sessionID?: string
+  time?: { created?: number; completed?: number; start?: number; end?: number }
   synthetic?: boolean
 }
 
@@ -23,6 +27,8 @@ export interface OcReasoningPart {
   type: 'reasoning'
   id: string
   text: string
+  messageID?: string
+  sessionID?: string
 }
 
 export interface OcFilePart {
@@ -31,16 +37,22 @@ export interface OcFilePart {
   url: string
   filename?: string
   mime?: string
+  messageID?: string
+  sessionID?: string
 }
 
 export interface OcStepStartPart {
   type: 'step-start'
   id: string
+  messageID?: string
+  sessionID?: string
 }
 
 export interface OcStepFinishPart {
   type: 'step-finish'
   id: string
+  messageID?: string
+  sessionID?: string
 }
 
 export interface OcToolStatePending {
@@ -80,6 +92,8 @@ export interface OcToolPart {
   callID: string
   tool: string
   state: OcToolState
+  messageID?: string
+  sessionID?: string
 }
 
 export type OcPartType =
@@ -93,8 +107,8 @@ export type OcPartType =
 // ─── Message ─────────────────────────────────────────────────────────────────
 
 export interface OcMessageError {
-  name: 'MessageError'
-  data: { type: 'auth' | 'api' | 'context'; message: string }
+  name: string
+  data: { message: string; [key: string]: unknown }
 }
 
 export interface OcMessageInfo {
@@ -127,27 +141,27 @@ export interface OcPromptInput {
 }
 
 // ─── SSE bus events ──────────────────────────────────────────────────────────
+// Aligned with the SDK's Event union (@opencode-ai/sdk).
+// Key differences from the old custom types:
+//   • message.part.delta is gone — delta is now an optional field on message.part.updated
+//   • sessionID is no longer in message.updated properties (use info.sessionID instead)
+//   • sessionID is no longer in message.part.updated properties (use part.sessionID instead)
 
 export type OcBusEvent =
   | { type: 'server.connected'; properties: Record<string, never> }
   | { type: 'server.heartbeat'; properties: Record<string, never> }
-  | { type: 'message.updated'; properties: { sessionID: string; info: OcMessageInfo } }
+  | { type: 'message.updated'; properties: { info: OcMessageInfo } }
   | { type: 'message.removed'; properties: { sessionID: string; messageID: string } }
   | {
       type: 'message.part.updated'
-      properties: { sessionID: string; part: OcPartType; time: number }
-    }
-  | {
-      type: 'message.part.delta'
       properties: {
-        sessionID: string
-        messageID: string
-        partID: string
-        field: string
-        delta: string
+        part: OcPartType
+        /** Incremental text delta (only present during streaming). */
+        delta?: string
       }
     }
   | {
       type: 'message.part.removed'
       properties: { sessionID: string; messageID: string; partID: string }
     }
+  | { type: string; properties: unknown }

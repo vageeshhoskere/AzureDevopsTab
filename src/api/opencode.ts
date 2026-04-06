@@ -1,38 +1,36 @@
 import type { OcSession, OcMessageWithParts, OcPromptInput } from '../types/opencode'
+import { client } from './client'
 
-const getBase = () =>
-  (import.meta.env.VITE_OPENCODE_API_URL as string | undefined) ?? 'http://localhost:4096'
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${getBase()}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
-    ...init,
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText)
-    throw new Error(`Opencode API ${res.status}: ${text}`)
-  }
-  return res.json() as Promise<T>
+function unwrap<T>(result: { data?: T; error?: unknown }): T {
+  if (result.error) throw new Error(`Opencode: ${JSON.stringify(result.error)}`)
+  if (result.data === undefined) throw new Error('Opencode: empty response')
+  return result.data
 }
 
 // ─── Sessions ────────────────────────────────────────────────────────────────
 
-export function createSession(): Promise<OcSession> {
-  return request<OcSession>('/session', { method: 'POST', body: JSON.stringify({}) })
+export async function createSession(): Promise<OcSession> {
+  const result = await client.session.create()
+  return unwrap(result) as unknown as OcSession
 }
 
-export function getSession(id: string): Promise<OcSession> {
-  return request<OcSession>(`/session/${id}`)
+export async function getSession(id: string): Promise<OcSession> {
+  const result = await client.session.get({ path: { id } })
+  return unwrap(result) as unknown as OcSession
 }
 
-export function listSessions(): Promise<OcSession[]> {
-  return request<OcSession[]>('/session')
+export async function listSessions(): Promise<OcSession[]> {
+  const result = await client.session.list()
+  return unwrap(result) as unknown as OcSession[]
 }
 
 // ─── Messages ────────────────────────────────────────────────────────────────
 
-export function listMessages(sessionID: string): Promise<OcMessageWithParts[]> {
-  return request<OcMessageWithParts[]>(`/session/${sessionID}/message`)
+export async function listMessages(sessionID: string): Promise<OcMessageWithParts[]> {
+  const result = await client.session.messages({ path: { id: sessionID } })
+  return unwrap(result) as unknown as OcMessageWithParts[]
 }
 
 /**
@@ -40,19 +38,14 @@ export function listMessages(sessionID: string): Promise<OcMessageWithParts[]> {
  * ready (authoritative). Meanwhile, live text deltas arrive via the /event
  * SSE stream.
  */
-export function sendMessage(
+export async function sendMessage(
   sessionID: string,
   input: OcPromptInput,
 ): Promise<OcMessageWithParts> {
-  return request<OcMessageWithParts>(`/session/${sessionID}/message`, {
-    method: 'POST',
-    body: JSON.stringify(input),
+  const result = await client.session.prompt({
+    path: { id: sessionID },
+    // OcPromptInput.parts is structurally compatible with the SDK's TextPartInput/FilePartInput
+    body: input as Parameters<typeof client.session.prompt>[0]['body'],
   })
-}
-
-// ─── Event stream ─────────────────────────────────────────────────────────────
-
-/** Create an EventSource connected to the /event SSE endpoint. */
-export function createEventSource(): EventSource {
-  return new EventSource(`${getBase()}/event`)
+  return unwrap(result) as unknown as OcMessageWithParts
 }

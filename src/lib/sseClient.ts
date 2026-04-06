@@ -1,19 +1,14 @@
 import type { OcBusEvent } from '../types/opencode'
-import { createEventSource } from '../api/opencode'
+import { client } from '../api/client'
 
 type EventType = OcBusEvent['type']
 type HandlerFor<T extends EventType> = (
   properties: Extract<OcBusEvent, { type: T }>['properties'],
 ) => void
 
-const MAX_RETRIES = 5
-const BASE_DELAY_MS = 1000
-
 class SseClient {
-  private es: EventSource | null = null
   private handlers = new Map<string, Set<HandlerFor<EventType>>>()
-  private retryCount = 0
-  private retryTimer: ReturnType<typeof setTimeout> | null = null
+  private abortController: AbortController | null = null
   private connected = false
 
   get isConnected() {
@@ -21,16 +16,14 @@ class SseClient {
   }
 
   connect(): void {
-    if (this.es) return
-    this._open()
+    if (this.abortController) return // already running
+    void this._run()
   }
 
   disconnect(): void {
-    if (this.retryTimer) clearTimeout(this.retryTimer)
-    this.es?.close()
-    this.es = null
+    this.abortController?.abort()
+    this.abortController = null
     this.connected = false
-    this.retryCount = 0
   }
 
   on<T extends EventType>(type: T, handler: HandlerFor<T>): () => void {
@@ -42,45 +35,44 @@ class SseClient {
     return () => set.delete(handler as unknown as HandlerFor<EventType>)
   }
 
-  private _open(): void {
-    const es = createEventSource()
-    this.es = es
+  private async _run(): Promise<void> {
+    this.abortController = new AbortController()
+    const signal = this.abortController.signal
 
-    es.addEventListener('message', (e: MessageEvent) => {
-      this._dispatch(e.data as string)
-    })
-
-    es.addEventListener('open', () => {
-      this.connected = true
-      this.retryCount = 0
-    })
-
-    es.addEventListener('error', () => {
-      this.connected = false
-      es.close()
-      this.es = null
-      this._scheduleReconnect()
-    })
-  }
-
-  private _scheduleReconnect(): void {
-    if (this.retryCount >= MAX_RETRIES) return
-    const delay = BASE_DELAY_MS * Math.pow(2, this.retryCount)
-    this.retryCount++
-    this.retryTimer = setTimeout(() => {
-      this._open()
-    }, delay)
-  }
-
-  private _dispatch(raw: string): void {
     try {
-      const event = JSON.parse(raw) as OcBusEvent
-      const set = this.handlers.get(event.type)
-      if (set) {
-        set.forEach((h) => h(event.properties as never))
+      const { stream } = await client.event.subscribe({
+        signal,
+        // SDK handles exponential back-off internally; set sensible bounds
+        sseDefaultRetryDelay: 1_000,
+        sseMaxRetryDelay: 30_000,
+      })
+
+      this.connected = true
+
+      for await (const event of stream) {
+        if (signal.aborted) break
+        this._dispatch(event as unknown as OcBusEvent)
       }
-    } catch {
-      // ignore malformed events
+    } catch (err) {
+      if (!signal.aborted) {
+        console.warn('[SseClient] stream ended unexpectedly:', err)
+      }
+    } finally {
+      this.connected = false
+      if (!signal.aborted) {
+        // Stream ended without an explicit disconnect — restart after a delay
+        this.abortController = null
+        setTimeout(() => void this._run(), 3_000)
+      } else {
+        this.abortController = null
+      }
+    }
+  }
+
+  private _dispatch(event: OcBusEvent): void {
+    const set = this.handlers.get(event.type)
+    if (set) {
+      set.forEach((h) => h(event.properties as never))
     }
   }
 }

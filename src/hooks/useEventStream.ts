@@ -13,34 +13,40 @@ export function useEventStream(sessionID: string | null) {
   useEffect(() => {
     sseClient.connect()
 
-    const unsubDelta = sseClient.on('message.part.delta', (props) => {
-      if (props.sessionID !== sessionRef.current) return
-      updateMessagePartDelta(props.messageID, props.partID, props.field, props.delta)
-    })
-
+    // message.part.updated carries the full part state.
+    // When the assistant is streaming, the event also includes an optional
+    // `delta` field containing the incremental text chunk so the UI can
+    // append it immediately without waiting for the full part.
     const unsubPartUpdated = sseClient.on('message.part.updated', (props) => {
-      if (props.sessionID !== sessionRef.current) return
-      // Find which message this part belongs to — part.id is partID,
-      // but the event gives us the full part. We need to match by sessionID.
-      upsertMessagePart(
-        // The event doesn't include messageID directly in part.updated —
-        // we use the part's own data; the store will match by scanning messages
-        // that belong to this session. This is a best-effort update; the POST
-        // response is authoritative.
-        sessionRef.current ?? '',
-        props.part,
-      )
+      const { part, delta } = props
+      // SDK parts carry sessionID and messageID directly on the part object
+      const partSessionID = (part as { sessionID?: string }).sessionID
+      if (partSessionID && partSessionID !== sessionRef.current) return
+
+      const messageID = (part as { messageID?: string }).messageID
+      if (!messageID) return
+
+      if (delta !== undefined && part.type === 'text') {
+        // Fast-path: append only the delta so text streams smoothly
+        updateMessagePartDelta(messageID, part.id, 'text', delta)
+      }
+      // Always upsert the full part for authoritative state (tool updates, etc.)
+      upsertMessagePart(messageID, part)
     })
 
+    // message.updated fires when a new message is created or its metadata changes.
+    // In the SDK event model, sessionID lives on info.sessionID, not in properties.
     const unsubMsgUpdated = sseClient.on('message.updated', (props) => {
-      if (props.sessionID !== sessionRef.current) return
       const { info } = props
+      const infoSessionID = (info as { sessionID?: string }).sessionID
+      if (infoSessionID && infoSessionID !== sessionRef.current) return
+
       // Create a placeholder message for streaming assistant replies
       if (info.role === 'assistant' && !info.time.completed) {
         setAssistantTyping(true)
         addMessage({
           id: info.id,
-          sessionID: info.sessionID,
+          sessionID: infoSessionID ?? sessionRef.current ?? '',
           role: 'assistant',
           parts: [],
           workItems: [],
@@ -51,7 +57,6 @@ export function useEventStream(sessionID: string | null) {
     })
 
     return () => {
-      unsubDelta()
       unsubPartUpdated()
       unsubMsgUpdated()
     }
