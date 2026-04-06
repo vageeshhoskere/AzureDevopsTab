@@ -43,6 +43,12 @@ interface DrawerSlice {
 
 interface AppSlice {
   baseURL: string
+  /** AI provider ID (from VITE_OPENCODE_PROVIDER_ID). null = use backend default. */
+  providerID: string | null
+  /** AI model ID (from VITE_OPENCODE_MODEL_ID). null = use backend default. */
+  modelID: string | null
+  /** Opencode agent name (from VITE_OPENCODE_AGENT). null = use backend default. */
+  agent: string | null
   setBaseURL: (url: string) => void
 }
 
@@ -166,6 +172,10 @@ export const useStore = create<AppStore>()(
     // ── App ──
     baseURL:
       (import.meta.env.VITE_OPENCODE_API_URL as string | undefined) ?? 'http://localhost:4096',
+
+    providerID: (import.meta.env.VITE_OPENCODE_PROVIDER_ID as string | undefined) || null,
+    modelID:    (import.meta.env.VITE_OPENCODE_MODEL_ID    as string | undefined) || null,
+    agent:      (import.meta.env.VITE_OPENCODE_AGENT       as string | undefined) || null,
 
     setBaseURL: (url) =>
       set((s) => {

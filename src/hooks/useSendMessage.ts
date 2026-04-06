@@ -3,7 +3,10 @@ import { sendMessage } from '../api/opencode'
 import { useStore } from '../store'
 
 export function useSendMessage() {
-  const sessionID = useStore((s) => s.sessionID)
+  const sessionID  = useStore((s) => s.sessionID)
+  const providerID = useStore((s) => s.providerID)
+  const modelID    = useStore((s) => s.modelID)
+  const agent      = useStore((s) => s.agent)
   const addMessage = useStore((s) => s.addMessage)
   const finalizeMessage = useStore((s) => s.finalizeMessage)
   const setAssistantTyping = useStore((s) => s.setAssistantTyping)
@@ -11,7 +14,13 @@ export function useSendMessage() {
   return useMutation({
     mutationFn: async (text: string) => {
       if (!sessionID) throw new Error('No active session')
-      return sendMessage(sessionID, { parts: [{ type: 'text', text }] })
+      return sendMessage(sessionID, {
+        parts: [{ type: 'text', text }],
+        // Include model only when both provider and model are configured
+        ...(providerID && modelID ? { model: { providerID, modelID } } : {}),
+        // Include agent only when configured
+        ...(agent ? { agent } : {}),
+      })
     },
     onMutate: (text) => {
       if (!sessionID) return
