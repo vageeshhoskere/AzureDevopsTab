@@ -11,8 +11,11 @@ export function UserMessage({ parts }: UserMessageProps) {
     .join('')
 
   return (
-    <div className="flex justify-end px-4 py-2">
-      <div className="max-w-[75%] bg-ado-accent text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words">
+    <div className="flex justify-end px-4 py-1.5">
+      <div
+        className="max-w-[75%] bg-ado-accent text-white px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words shadow-md shadow-ado-accent/20"
+        style={{ borderRadius: '18px 18px 4px 18px' }}
+      >
         {text}
       </div>
     </div>

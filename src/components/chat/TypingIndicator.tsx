@@ -1,14 +1,14 @@
 export function TypingIndicator() {
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
-      <div className="w-7 h-7 rounded-full bg-ado-accent/20 flex items-center justify-center flex-shrink-0">
-        <span className="text-xs font-bold text-ado-accent">AI</span>
+    <div className="flex items-center gap-3 px-4 py-1.5">
+      <div className="w-8 h-8 rounded-full gradient-avatar flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5">
+        AI
       </div>
-      <div className="flex items-center gap-1.5 bg-ado-surface rounded-2xl rounded-tl-sm px-4 py-3">
+      <div className="ai-message-border pl-4 pr-4 py-3 rounded-r-xl flex items-center gap-1.5">
         {[0, 1, 2].map((i) => (
           <span
             key={i}
-            className="w-2 h-2 rounded-full bg-ado-muted inline-block"
+            className="w-2 h-2 rounded-full bg-ado-accent inline-block"
             style={{
               animation: 'dotBounce 1.4s infinite ease-in-out both',
               animationDelay: `${i * 0.16}s`,

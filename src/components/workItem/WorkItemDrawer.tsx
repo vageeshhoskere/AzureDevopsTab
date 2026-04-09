@@ -2,7 +2,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useStore } from '../../store'
 import { useWorkItemDetail } from '../../hooks/useWorkItemDetail'
 import { WorkItemDetail } from './WorkItemDetail'
-import { Button } from '../ui/Button'
 
 export function WorkItemDrawer() {
   const drawerOpen = useStore((s) => s.drawerOpen)
@@ -15,14 +14,14 @@ export function WorkItemDrawer() {
     <AnimatePresence>
       {drawerOpen && selectedWorkItemID !== null && (
         <>
-          {/* Backdrop — click to close */}
+          {/* Backdrop */}
           <motion.div
             key="backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 z-40 bg-ado-text/5"
             onClick={closeDrawer}
           />
 
@@ -33,38 +32,47 @@ export function WorkItemDrawer() {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed right-0 top-0 h-full w-[42vw] min-w-[380px] max-w-[640px] bg-ado-surface border-l border-ado-border z-50 flex flex-col shadow-[-8px_0_32px_rgba(0,0,0,0.10)]"
+            className="fixed right-0 top-0 h-full w-[42vw] min-w-[380px] max-w-[640px] bg-ado-surface border-l border-ado-border z-50 flex flex-col"
+            style={{ boxShadow: '-8px 0 40px rgba(30,27,75,0.12)' }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-ado-border flex-shrink-0">
-              <div className="min-w-0">
-                <span className="text-xs font-mono text-ado-accent font-semibold">
+            <div className="flex items-start justify-between px-6 py-4 border-b border-ado-border flex-shrink-0">
+              <div className="min-w-0 flex-1">
+                <span className="text-xs font-mono font-semibold text-ado-accent">
                   #{selectedWorkItemID}
                 </span>
                 {detail && (
-                  <h2 className="text-base font-semibold text-ado-text mt-0.5 line-clamp-1">
+                  <h2 className="text-base font-semibold text-ado-text mt-0.5 line-clamp-1 pr-4">
                     {detail.title}
                   </h2>
                 )}
                 {isLoading && !detail && (
-                  <div className="h-5 w-48 bg-ado-surface2 rounded animate-pulse mt-0.5" />
+                  <div className="h-5 w-48 bg-ado-surface2 rounded-md animate-pulse mt-0.5" />
                 )}
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+              <div className="flex items-center gap-3 flex-shrink-0 mt-0.5">
                 {detail?.url && (
                   <a
                     href={detail.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-ado-accent hover:text-ado-accentLight transition-colors"
-                    title="Open in Azure DevOps"
+                    className="text-xs font-medium text-ado-accent hover:text-ado-accentHover transition-colors flex items-center gap-1"
                   >
-                    Open ↗
+                    Open in ADO
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <path d="M2 8L8 2M4 2h4v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </a>
                 )}
-                <Button variant="ghost" size="sm" onClick={closeDrawer} aria-label="Close">
-                  ✕
-                </Button>
+                <button
+                  onClick={closeDrawer}
+                  aria-label="Close"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-ado-muted hover:bg-ado-surface2 hover:text-ado-text transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+                  </svg>
+                </button>
               </div>
             </div>
 

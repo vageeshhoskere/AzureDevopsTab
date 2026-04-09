@@ -7,7 +7,6 @@ interface ToolCallBlockProps {
 }
 
 function formatToolName(name: string): string {
-  // e.g. "azure_devops__get_work_items" → "Get Work Items"
   return name
     .replace(/^[^_]+__/, '')
     .replace(/_/g, ' ')
@@ -33,37 +32,49 @@ export function ToolCallBlock({ part }: ToolCallBlockProps) {
   }
 
   return (
-    <div className="my-2 border border-ado-border rounded-lg overflow-hidden bg-ado-bg text-xs">
+    <div className="my-2 border border-ado-border rounded-xl overflow-hidden bg-ado-surface shadow-sm text-xs">
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-ado-surface2 transition-colors"
+        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-left hover:bg-ado-surface2 transition-colors"
         disabled={isRunning}
       >
         {isRunning && <Spinner size="sm" className="flex-shrink-0" />}
         {isDone && (
-          <span className="flex-shrink-0 w-4 h-4 rounded-full bg-ado-story/20 text-ado-story flex items-center justify-center text-[10px]">
-            ✓
+          <span className="flex-shrink-0 w-4 h-4 rounded-full bg-ado-story flex items-center justify-center">
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+              <path d="M1.5 4l1.5 1.5 3.5-3" stroke="white" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </span>
         )}
         {isError && (
-          <span className="flex-shrink-0 w-4 h-4 rounded-full bg-ado-bug/20 text-ado-bug flex items-center justify-center text-[10px]">
-            ✗
+          <span className="flex-shrink-0 w-4 h-4 rounded-full bg-ado-bug flex items-center justify-center">
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+              <path d="M2 2l4 4M6 2L2 6" stroke="white" strokeWidth="1.25" strokeLinecap="round" />
+            </svg>
           </span>
         )}
-        <span className="text-ado-muted">
+
+        <span className="text-ado-muted flex-1">
           {isRunning && 'Calling '}
-          <span className="text-ado-accent font-medium">{formatToolName(part.tool)}</span>
-          {isDone && <span className="text-ado-muted ml-1">— {summary}</span>}
+          <span className="text-ado-accent font-semibold">{formatToolName(part.tool)}</span>
+          {isDone && <span className="text-ado-muted font-normal ml-1">— {summary}</span>}
           {isError && <span className="text-ado-bug ml-1">— Failed</span>}
         </span>
+
         {(isDone || isError) && (
-          <span className="ml-auto text-ado-muted">{expanded ? '▲' : '▼'}</span>
+          <svg
+            className="ml-auto text-ado-muted transition-transform duration-200 flex-shrink-0"
+            style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+            width="14" height="14" viewBox="0 0 14 14" fill="none"
+          >
+            <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         )}
       </button>
 
       {expanded && isDone && (
-        <div className="px-3 pb-3 border-t border-ado-border">
-          <pre className="mt-2 text-ado-muted overflow-x-auto whitespace-pre-wrap break-all text-[11px] max-h-48">
+        <div className="px-4 pb-3 border-t border-ado-border">
+          <pre className="mt-2 text-ado-muted overflow-x-auto whitespace-pre-wrap break-all text-[11px] max-h-48 font-mono leading-relaxed">
             {(() => {
               try {
                 return JSON.stringify(JSON.parse(state.output), null, 2)
@@ -76,7 +87,7 @@ export function ToolCallBlock({ part }: ToolCallBlockProps) {
       )}
 
       {expanded && isError && (
-        <div className="px-3 pb-3 border-t border-ado-border">
+        <div className="px-4 pb-3 border-t border-ado-border">
           <p className="mt-2 text-ado-bug text-[11px]">{state.error}</p>
         </div>
       )}

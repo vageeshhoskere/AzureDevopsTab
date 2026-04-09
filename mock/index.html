@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WorkHub — AI Chat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#F5F3FF',
+            surface: '#FFFFFF',
+            surface2: '#EBEFF9',
+            border: '#E0E7FF',
+            primary: '#6366F1',
+            'primary-light': '#818CF8',
+            'primary-hover': '#4F46E5',
+            accent: '#059669',
+            tx: '#1E1B4B',
+            muted: '#64748B',
+            destructive: '#DC2626',
+          },
+          fontFamily: {
+            sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
+            mono: ['"Cascadia Code"', 'Consolas', 'monospace'],
+          },
+          boxShadow: {
+            card: '0 2px 12px rgba(99,102,241,0.08)',
+            'card-hover': '0 6px 24px rgba(99,102,241,0.14)',
+            user: '0 2px 10px rgba(99,102,241,0.25)',
+            drawer: '-8px 0 40px rgba(30,27,75,0.12)',
+          },
+          keyframes: {
+            bounce3: {
+              '0%, 80%, 100%': { transform: 'translateY(0)', opacity: '0.4' },
+              '40%': { transform: 'translateY(-6px)', opacity: '1' },
+            },
+            fadeIn: {
+              from: { opacity: '0', transform: 'translateY(8px)' },
+              to: { opacity: '1', transform: 'translateY(0)' },
+            },
+            slideInRight: {
+              from: { transform: 'translateX(100%)' },
+              to: { transform: 'translateX(0)' },
+            },
+            slideOutRight: {
+              from: { transform: 'translateX(0)' },
+              to: { transform: 'translateX(100%)' },
+            },
+            spin: { to: { transform: 'rotate(360deg)' } },
+          },
+          animation: {
+            'bounce3': 'bounce3 1.4s infinite ease-in-out',
+            'bounce3-1': 'bounce3 1.4s 0.16s infinite ease-in-out',
+            'bounce3-2': 'bounce3 1.4s 0.32s infinite ease-in-out',
+            'fade-in': 'fadeIn 0.25s ease-out forwards',
+            'spin-slow': 'spin 0.9s linear infinite',
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'DM Sans', system-ui, sans-serif; }
+
+    /* Scrollbars */
+    .scroll-area::-webkit-scrollbar { width: 5px; }
+    .scroll-area::-webkit-scrollbar-track { background: transparent; }
+    .scroll-area::-webkit-scrollbar-thumb { background: #C7D2FE; border-radius: 99px; }
+    .scroll-area::-webkit-scrollbar-thumb:hover { background: #818CF8; }
+
+    /* AI message left border gradient */
+    .ai-border {
+      border-left: 3px solid transparent;
+      background-image: linear-gradient(white, white), linear-gradient(180deg, #6366F1, #A78BFA);
+      background-origin: border-box;
+      background-clip: padding-box, border-box;
+    }
+
+    /* JSON viewer */
+    .json-block {
+      background: #EBEFF9;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-family: 'Cascadia Code', Consolas, monospace;
+      font-size: 12px;
+      color: #374151;
+      overflow-x: auto;
+      line-height: 1.6;
+    }
+    .json-key { color: #4F46E5; }
+    .json-string { color: #059669; }
+    .json-number { color: #D97706; }
+
+    textarea::placeholder { color: #94A3B8; }
+    textarea:focus { outline: none; }
+
+    .prompt-chip:hover { border-color: #6366F1; color: #4F46E5; background: #F5F3FF; }
+
+    .work-item-card { transition: all 0.18s ease; cursor: pointer; }
+    .work-item-card:hover { box-shadow: 0 6px 24px rgba(99,102,241,0.14); transform: translateY(-1px); }
+
+    .ai-avatar { background: linear-gradient(135deg, #6366F1 0%, #A78BFA 100%); }
+
+    /* ── Drawer ── */
+    #drawer-panel {
+      position: fixed;
+      top: 0; right: 0; bottom: 0;
+      width: 42vw;
+      min-width: 380px;
+      max-width: 620px;
+      background: #fff;
+      border-left: 1px solid #E0E7FF;
+      box-shadow: -8px 0 40px rgba(30,27,75,0.12);
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    #drawer-panel.open { transform: translateX(0); }
+
+    #drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background: rgba(30,27,75,0.08);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+    }
+    #drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+
+    /* Drawer section dividers */
+    .drawer-section {
+      padding: 16px 0;
+      border-bottom: 1px solid #E0E7FF;
+    }
+    .drawer-section:last-child { border-bottom: none; }
+    .drawer-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94A3B8;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+    }
+
+    /* Skeleton pulse */
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .skeleton { background: #EBEFF9; border-radius: 6px; animation: pulse 1.6s ease-in-out infinite; }
+
+    /* Description prose */
+    .prose-content p { margin-bottom: 8px; line-height: 1.6; }
+    .prose-content ul { list-style: disc; padding-left: 18px; margin-bottom: 8px; }
+    .prose-content li { margin-bottom: 4px; line-height: 1.5; }
+  </style>
+</head>
+<body class="bg-bg flex flex-col" style="height:100vh; overflow:hidden;">
+
+  <!-- ══════════════════════════════════════
+       HEADER
+  ══════════════════════════════════════ -->
+  <header class="bg-surface border-b border-border px-6 py-3 flex items-center justify-between flex-shrink-0">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-lg ai-avatar flex items-center justify-center flex-shrink-0">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M3 8h10M8 3v10M5 5l6 6M11 5l-6 6" stroke="white" stroke-width="1.75" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="text-lg font-semibold text-primary tracking-tight">WorkHub</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-1.5 bg-surface2 border border-border rounded-full px-3 py-1">
+        <div class="w-1.5 h-1.5 rounded-full bg-accent"></div>
+        <span class="text-xs text-muted font-medium">Session #a3f9b</span>
+      </div>
+      <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-semibold select-none">VH</div>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════
+       MAIN
+  ══════════════════════════════════════ -->
+  <main class="flex-1 overflow-hidden flex flex-col">
+
+    <!-- Message list -->
+    <div id="message-list" class="flex-1 overflow-y-auto scroll-area px-4 py-6 space-y-6" style="max-width:860px;width:100%;margin:0 auto;">
+
+      <!-- Empty state -->
+      <div id="empty-state" class="flex flex-col items-center justify-center py-16 gap-8 animate-fade-in">
+        <div class="relative">
+          <div class="w-20 h-20 rounded-2xl ai-avatar flex items-center justify-center shadow-card">
+            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+              <rect x="4" y="10" width="28" height="20" rx="4" stroke="white" stroke-width="2"/>
+              <path d="M12 18h12M12 23h7" stroke="white" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="26" cy="8" r="4" fill="#A78BFA" stroke="white" stroke-width="1.5"/>
+              <path d="M24.5 8h3M26 6.5v3" stroke="white" stroke-width="1.25" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-accent rounded-full border-2 border-white flex items-center justify-center">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="text-center">
+          <h2 class="text-xl font-semibold text-tx mb-1">Your WorkHub assistant is ready</h2>
+          <p class="text-sm text-muted">Ask anything about your sprints, work items, or team velocity.</p>
+        </div>
+        <div class="flex flex-wrap gap-2.5 justify-center max-w-xl">
+          <button onclick="usePrompt(this)" data-prompt="What are my active work items this sprint?" class="prompt-chip border border-border bg-surface text-muted text-sm px-4 py-2 rounded-full transition-all duration-150 font-medium">Active items this sprint</button>
+          <button onclick="usePrompt(this)" data-prompt="Show me all critical bugs assigned to me" class="prompt-chip border border-border bg-surface text-muted text-sm px-4 py-2 rounded-full transition-all duration-150 font-medium">Critical bugs assigned to me</button>
+          <button onclick="usePrompt(this)" data-prompt="What items are currently blocked?" class="prompt-chip border border-border bg-surface text-muted text-sm px-4 py-2 rounded-full transition-all duration-150 font-medium">What's blocked right now?</button>
+          <button onclick="usePrompt(this)" data-prompt="Summarize the team's velocity for the last 2 sprints" class="prompt-chip border border-border bg-surface text-muted text-sm px-4 py-2 rounded-full transition-all duration-150 font-medium">Team velocity summary</button>
+        </div>
+      </div>
+
+      <!-- Demo messages -->
+      <div id="demo-messages" class="hidden space-y-6">
+
+        <!-- User message -->
+        <div class="flex justify-end animate-fade-in">
+          <div class="flex items-end gap-2.5 max-w-lg">
+            <div class="bg-primary text-white px-4 py-3 shadow-user" style="border-radius:18px 18px 4px 18px;">
+              <p class="text-sm font-medium leading-relaxed">Show me all active bugs in the current sprint</p>
+            </div>
+            <div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mb-0.5">VH</div>
+          </div>
+        </div>
+
+        <!-- Tool call (completed, expandable) -->
+        <div class="flex justify-start animate-fade-in">
+          <div class="ml-9 w-full max-w-xl">
+            <div class="tool-block bg-surface border border-border rounded-xl overflow-hidden shadow-card">
+              <button onclick="toggleTool(this)" class="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface2 transition-colors duration-150">
+                <div class="w-5 h-5 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div class="flex-1 text-left">
+                  <span class="text-xs font-semibold text-tx">get_work_items</span>
+                  <span class="text-xs text-muted ml-2">Retrieved 4 active bugs</span>
+                </div>
+                <svg class="tool-chevron w-4 h-4 text-muted transition-transform duration-200" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <div class="tool-content hidden border-t border-border">
+                <div class="px-4 py-3 json-block">
+<span class="json-key">"query"</span>: <span class="json-string">"SELECT ... WHERE [System.WorkItemType] = 'Bug' AND [System.State] = 'Active'"</span>,
+<span class="json-key">"count"</span>: <span class="json-number">4</span>,
+<span class="json-key">"items"</span>: [
+  { <span class="json-key">"id"</span>: <span class="json-number">4821</span>, <span class="json-key">"title"</span>: <span class="json-string">"Login fails on Safari 17"</span>, <span class="json-key">"priority"</span>: <span class="json-number">1</span> },
+  { <span class="json-key">"id"</span>: <span class="json-number">4809</span>, <span class="json-key">"title"</span>: <span class="json-string">"Dashboard chart flickers on resize"</span>, <span class="json-key">"priority"</span>: <span class="json-number">2</span> },
+  { <span class="json-key">"id"</span>: <span class="json-number">4795</span>, <span class="json-key">"title"</span>: <span class="json-string">"Export to CSV skips last row"</span>, <span class="json-key">"priority"</span>: <span class="json-number">3</span> },
+  { <span class="json-key">"id"</span>: <span class="json-number">4788</span>, <span class="json-key">"title"</span>: <span class="json-string">"Notification emails not sent on weekends"</span>, <span class="json-key">"priority"</span>: <span class="json-number">3</span> }
+]
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI message with work item cards -->
+        <div class="flex justify-start animate-fade-in">
+          <div class="flex items-start gap-3 max-w-2xl w-full">
+            <div class="w-8 h-8 rounded-full ai-avatar flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5">AI</div>
+            <div class="flex-1 min-w-0">
+              <div class="ai-border pl-4 pr-2 py-1 rounded-r-xl">
+                <p class="text-xs font-semibold text-primary mb-1">WorkHub Assistant</p>
+                <p class="text-sm text-tx leading-relaxed mb-3">Found <strong>4 active bugs</strong> in Sprint 24. Here's a breakdown — 1 critical issue needs immediate attention:</p>
+                <div class="space-y-2 mb-3">
+
+                  <div class="work-item-card bg-surface border border-border rounded-xl overflow-hidden shadow-card flex" onclick="openDrawer(4821)">
+                    <div class="w-1 flex-shrink-0" style="background:#DC2626;"></div>
+                    <div class="flex-1 px-3 py-2.5 flex items-center gap-3">
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-0.5">
+                          <span class="text-xs font-mono text-muted">#4821</span>
+                          <span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:rgba(220,38,38,0.1);color:#DC2626;">Bug</span>
+                          <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-red-50 text-red-700 border border-red-100">Critical</span>
+                        </div>
+                        <p class="text-sm font-medium text-tx truncate">Login fails on Safari 17</p>
+                      </div>
+                      <div class="flex items-center gap-2 flex-shrink-0">
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100 font-medium">Active</span>
+                        <div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-white text-xs font-semibold" title="Priya S.">PS</div>
+                        <svg class="w-3.5 h-3.5 text-muted" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="work-item-card bg-surface border border-border rounded-xl overflow-hidden shadow-card flex" onclick="openDrawer(4809)">
+                    <div class="w-1 flex-shrink-0" style="background:#DC2626;"></div>
+                    <div class="flex-1 px-3 py-2.5 flex items-center gap-3">
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-0.5">
+                          <span class="text-xs font-mono text-muted">#4809</span>
+                          <span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:rgba(220,38,38,0.1);color:#DC2626;">Bug</span>
+                          <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-orange-50 text-orange-700 border border-orange-100">High</span>
+                        </div>
+                        <p class="text-sm font-medium text-tx truncate">Dashboard chart flickers on resize</p>
+                      </div>
+                      <div class="flex items-center gap-2 flex-shrink-0">
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100 font-medium">Active</span>
+                        <div class="w-6 h-6 rounded-full bg-violet-500 flex items-center justify-center text-white text-xs font-semibold" title="Marcus T.">MT</div>
+                        <svg class="w-3.5 h-3.5 text-muted" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="work-item-card bg-surface border border-border rounded-xl overflow-hidden shadow-card flex" onclick="openDrawer(4795)">
+                    <div class="w-1 flex-shrink-0" style="background:#DC2626;"></div>
+                    <div class="flex-1 px-3 py-2.5 flex items-center gap-3">
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-0.5">
+                          <span class="text-xs font-mono text-muted">#4795</span>
+                          <span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:rgba(220,38,38,0.1);color:#DC2626;">Bug</span>
+                          <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-yellow-50 text-yellow-700 border border-yellow-100">Medium</span>
+                        </div>
+                        <p class="text-sm font-medium text-tx truncate">Export to CSV skips last row</p>
+                      </div>
+                      <div class="flex items-center gap-2 flex-shrink-0">
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 font-medium">In Progress</span>
+                        <div class="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs font-semibold" title="Yuki N.">YN</div>
+                        <svg class="w-3.5 h-3.5 text-muted" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="work-item-card bg-surface border border-border rounded-xl overflow-hidden shadow-card flex" onclick="openDrawer(4788)">
+                    <div class="w-1 flex-shrink-0" style="background:#DC2626;"></div>
+                    <div class="flex-1 px-3 py-2.5 flex items-center gap-3">
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-0.5">
+                          <span class="text-xs font-mono text-muted">#4788</span>
+                          <span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:rgba(220,38,38,0.1);color:#DC2626;">Bug</span>
+                          <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-yellow-50 text-yellow-700 border border-yellow-100">Medium</span>
+                        </div>
+                        <p class="text-sm font-medium text-tx truncate">Notification emails not sent on weekends</p>
+                      </div>
+                      <div class="flex items-center gap-2 flex-shrink-0">
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-surface2 text-muted border border-border font-medium">New</span>
+                        <div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-white text-xs font-semibold" title="Vageesh H.">VH</div>
+                        <svg class="w-3.5 h-3.5 text-muted" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+                <p class="text-sm text-muted leading-relaxed">
+                  Bug <span class="font-mono text-xs bg-surface2 px-1.5 py-0.5 rounded">#4821</span> is the highest priority — it's blocking users from logging in on Safari. Would you like me to pull the full details or check if there's a related PR?
+                </p>
+              </div>
+              <p class="text-xs text-muted mt-1.5 pl-1">2:34 PM</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- User follow-up -->
+        <div class="flex justify-end animate-fade-in">
+          <div class="flex items-end gap-2.5 max-w-lg">
+            <div class="bg-primary text-white px-4 py-3 shadow-user" style="border-radius:18px 18px 4px 18px;">
+              <p class="text-sm font-medium leading-relaxed">Yes, show me the full details for #4821</p>
+            </div>
+            <div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mb-0.5">VH</div>
+          </div>
+        </div>
+
+        <!-- Tool call running -->
+        <div class="flex justify-start animate-fade-in">
+          <div class="ml-9 w-full max-w-xl">
+            <div class="bg-surface border border-border rounded-xl shadow-card flex items-center gap-3 px-4 py-3">
+              <div class="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin-slow flex-shrink-0"></div>
+              <span class="text-xs font-semibold text-tx">get_work_item_detail</span>
+              <span class="text-xs text-muted ml-1">Fetching item #4821…</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Typing indicator -->
+        <div class="flex justify-start animate-fade-in">
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-full ai-avatar flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5">AI</div>
+            <div class="ai-border pl-4 pr-4 py-3 rounded-r-xl flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-primary inline-block animate-bounce3"></span>
+              <span class="w-2 h-2 rounded-full bg-primary inline-block animate-bounce3-1"></span>
+              <span class="w-2 h-2 rounded-full bg-primary inline-block animate-bounce3-2"></span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <!-- end message-list -->
+
+    <!-- Input area -->
+    <div class="border-t border-border bg-surface px-4 py-4 flex-shrink-0">
+      <div style="max-width:860px;margin:0 auto;">
+        <div class="flex items-end gap-3 bg-surface2 border border-border rounded-2xl px-4 py-3 focus-within:border-primary-light focus-within:ring-2 focus-within:ring-indigo-100 transition-all duration-150">
+          <textarea id="chat-input" rows="1" placeholder="Ask anything about your work…"
+            class="flex-1 bg-transparent resize-none text-sm text-tx leading-relaxed font-sans"
+            style="max-height:120px;min-height:24px;"
+            oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+          <button onclick="sendMessage()" class="w-8 h-8 rounded-xl bg-primary hover:bg-primary-hover text-white flex items-center justify-center flex-shrink-0 transition-colors duration-150" aria-label="Send">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 12V2M3 6l4-4 4 4" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <div class="flex items-center justify-between mt-2 px-1">
+          <p class="text-xs text-muted">Powered by <span class="font-medium text-primary">WorkHub AI</span></p>
+          <p class="text-xs text-muted">
+            <kbd class="bg-surface border border-border rounded px-1.5 py-0.5 text-xs font-mono">Enter</kbd> send &nbsp;·&nbsp;
+            <kbd class="bg-surface border border-border rounded px-1.5 py-0.5 text-xs font-mono">Shift+Enter</kbd> newline
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Demo toggle -->
+  <div class="fixed bottom-24 right-6 z-30 flex flex-col gap-1 items-end">
+    <button onclick="toggleDemo()" id="demo-btn"
+      class="bg-primary text-white text-xs font-semibold px-4 py-2 rounded-full shadow-user hover:bg-primary-hover transition-colors duration-150">
+      Load demo conversation
+    </button>
+    <p class="text-xs text-muted">for design review only</p>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       DRAWER BACKDROP
+  ══════════════════════════════════════ -->
+  <div id="drawer-backdrop" onclick="closeDrawer()"></div>
+
+  <!-- ══════════════════════════════════════
+       DRAWER PANEL
+  ══════════════════════════════════════ -->
+  <div id="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+
+    <!-- Drawer header -->
+    <div class="flex items-start justify-between px-6 py-4 border-b border-border flex-shrink-0">
+      <div class="min-w-0 flex-1">
+        <span id="drawer-id" class="text-xs font-mono font-semibold text-primary"></span>
+        <h2 id="drawer-title" class="text-base font-semibold text-tx mt-0.5 leading-snug pr-4"></h2>
+      </div>
+      <div class="flex items-center gap-3 flex-shrink-0 mt-0.5">
+        <a id="drawer-link" href="#" target="_blank" rel="noopener noreferrer"
+          class="text-xs font-medium text-primary hover:text-primary-hover transition-colors flex items-center gap-1">
+          Open in ADO
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 8L8 2M4 2h4v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <button onclick="closeDrawer()" aria-label="Close panel"
+          class="w-7 h-7 rounded-lg flex items-center justify-center text-muted hover:bg-surface2 hover:text-tx transition-colors duration-150">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Drawer body (scrollable) -->
+    <div id="drawer-body" class="flex-1 overflow-y-auto scroll-area px-6 py-2"></div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════
+       SCRIPTS
+  ══════════════════════════════════════ -->
+  <script>
+    /* ── Mock data ── */
+    const ITEMS = {
+      4821: {
+        id: 4821,
+        title: 'Login fails on Safari 17',
+        type: 'Bug',
+        state: 'Active',
+        priority: 1,
+        storyPoints: 3,
+        remainingWork: 4,
+        iteration: 'MyProject\\Sprint 24',
+        area: 'MyProject\\Auth',
+        assignee: { name: 'Priya Sharma', initials: 'PS', color: '#6366F1', email: 'priya.sharma@company.com' },
+        tags: ['auth', 'safari', 'regression'],
+        url: '#',
+        description: '<p>Users on Safari 17.x are unable to complete the OAuth login flow. The page redirects correctly to the identity provider but fails silently on return, leaving the user on a blank callback page with no error message displayed.</p><p>Affects all users on Safari 17+ (macOS Sonoma). Chrome and Firefox are unaffected.</p>',
+        acceptanceCriteria: '<ul><li>Login flow completes successfully on Safari 17.0, 17.1, and 17.2</li><li>Error message is shown if SSO fails for any reason</li><li>Existing Chrome/Firefox behaviour is not regressed</li></ul>',
+        relations: [
+          { type: 'Blocked By', id: 4750, title: 'Upgrade auth library to v3.2' },
+          { type: 'Related', id: 4822, title: 'Add Safari-specific CORS headers to callback endpoint' },
+        ],
+        comments: [
+          { id: 1, author: 'Marcus T.', initials: 'MT', color: '#7C3AED', date: 'Apr 7, 2026', text: 'Reproduced on Safari 17.1 on both macOS Ventura and Sonoma. The <code>state</code> param seems to be getting stripped from the callback URL.' },
+          { id: 2, author: 'Priya Sharma', initials: 'PS', color: '#6366F1', date: 'Apr 8, 2026', text: 'Confirmed — Safari is enforcing ITP which clears the session cookie before the callback fires. Working on a fix using <code>sessionStorage</code> as a temporary state store.' },
+        ],
+        createdAt: 'Apr 5, 2026 · 10:14 AM',
+        updatedAt: 'Apr 8, 2026 · 3:52 PM',
+      },
+      4809: {
+        id: 4809,
+        title: 'Dashboard chart flickers on resize',
+        type: 'Bug',
+        state: 'Active',
+        priority: 2,
+        storyPoints: 2,
+        remainingWork: 2,
+        iteration: 'MyProject\\Sprint 24',
+        area: 'MyProject\\UI',
+        assignee: { name: 'Marcus Torres', initials: 'MT', color: '#7C3AED', email: 'marcus.torres@company.com' },
+        tags: ['dashboard', 'charts', 'performance'],
+        url: '#',
+        description: '<p>When the browser window is resized, the throughput and cycle-time charts on the dashboard flicker and occasionally render blank for 1–2 seconds before re-drawing correctly.</p><p>Most noticeable when toggling the sidebar (which triggers a layout reflow).</p>',
+        acceptanceCriteria: '<ul><li>Charts resize smoothly without flickering</li><li>No blank-chart state visible during sidebar toggle</li><li>Resize behaviour tested at 1280px, 1440px, and 1920px widths</li></ul>',
+        relations: [
+          { type: 'Related', id: 4801, title: 'Optimise chart re-render debounce' },
+        ],
+        comments: [
+          { id: 1, author: 'Yuki N.', initials: 'YN', color: '#059669', date: 'Apr 6, 2026', text: 'The flicker happens because the chart library is calling <code>chart.resize()</code> before the container has finished its CSS transition. Adding a 300ms debounce should help.' },
+        ],
+        createdAt: 'Apr 3, 2026 · 2:40 PM',
+        updatedAt: 'Apr 6, 2026 · 11:20 AM',
+      },
+      4795: {
+        id: 4795,
+        title: 'Export to CSV skips last row',
+        type: 'Bug',
+        state: 'In Progress',
+        priority: 3,
+        storyPoints: 1,
+        remainingWork: 1,
+        iteration: 'MyProject\\Sprint 24',
+        area: 'MyProject\\Reporting',
+        assignee: { name: 'Yuki Nakamura', initials: 'YN', color: '#059669', email: 'yuki.nakamura@company.com' },
+        tags: ['export', 'csv', 'reporting'],
+        url: '#',
+        description: '<p>When exporting a work item list to CSV, the final row in the dataset is consistently omitted from the output file. This affects all export sizes (tested with 10, 50, and 200 rows).</p>',
+        acceptanceCriteria: '<ul><li>All rows present in the UI are included in the exported CSV</li><li>Row count in footer matches row count in file</li><li>Regression test added to export suite</li></ul>',
+        relations: [],
+        comments: [
+          { id: 1, author: 'Yuki N.', initials: 'YN', color: '#059669', date: 'Apr 8, 2026', text: 'Off-by-one error in the slice call — using <code>items.slice(0, count)</code> instead of <code>items.slice(0, count + 1)</code>. Fix is trivial, PR up shortly.' },
+        ],
+        createdAt: 'Apr 1, 2026 · 9:05 AM',
+        updatedAt: 'Apr 8, 2026 · 10:00 AM',
+      },
+      4788: {
+        id: 4788,
+        title: 'Notification emails not sent on weekends',
+        type: 'Bug',
+        state: 'New',
+        priority: 3,
+        storyPoints: 2,
+        remainingWork: null,
+        iteration: 'MyProject\\Sprint 24',
+        area: 'MyProject\\Notifications',
+        assignee: { name: 'Vageesh Hoskere', initials: 'VH', color: '#6366F1', email: 'vageesh.hoskere@company.com' },
+        tags: ['notifications', 'email', 'scheduler'],
+        url: '#',
+        description: '<p>Work item update notifications are not being dispatched on Saturdays and Sundays. Users who make changes over the weekend do not receive confirmation emails, and their team members miss the updates until Monday.</p><p>The issue was first reported on Apr 5. The notification scheduler appears to have a day-of-week filter that incorrectly excludes weekends.</p>',
+        acceptanceCriteria: '<ul><li>Notification emails are sent 7 days a week</li><li>Existing quiet-hours settings (if configured by the user) are respected</li><li>Scheduler unit tests updated to cover weekend scenarios</li></ul>',
+        relations: [
+          { type: 'Related', id: 4600, title: 'Add configurable notification quiet hours' },
+        ],
+        comments: [],
+        createdAt: 'Apr 5, 2026 · 8:30 AM',
+        updatedAt: 'Apr 5, 2026 · 8:30 AM',
+      },
+    };
+
+    /* ── Drawer ── */
+    function openDrawer(id) {
+      const item = ITEMS[id];
+      if (!item) return;
+
+      // Header
+      document.getElementById('drawer-id').textContent = '#' + item.id;
+      document.getElementById('drawer-title').textContent = item.title;
+      document.getElementById('drawer-link').href = item.url;
+
+      // Body
+      document.getElementById('drawer-body').innerHTML = buildDrawerBody(item);
+
+      // Animate open
+      document.getElementById('drawer-panel').classList.add('open');
+      document.getElementById('drawer-backdrop').classList.add('open');
+    }
+
+    function closeDrawer() {
+      document.getElementById('drawer-panel').classList.remove('open');
+      document.getElementById('drawer-backdrop').classList.remove('open');
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeDrawer();
+    });
+
+    function priorityLabel(p) { return ['', 'Critical', 'High', 'Medium', 'Low'][p] || String(p); }
+    function priorityColor(p) {
+      return [,'#DC2626','#EA580C','#D97706','#64748B'][p] || '#64748B';
+    }
+    function priorityBg(p) {
+      return [,'rgba(220,38,38,0.08)','rgba(234,88,12,0.08)','rgba(217,119,6,0.08)','rgba(100,116,139,0.08)'][p] || 'rgba(100,116,139,0.08)';
+    }
+
+    function buildDrawerBody(item) {
+      let html = '';
+
+      /* ── Details section ── */
+      html += `<div class="drawer-section">
+        <p class="drawer-section-title">Details</p>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
+          <div>
+            <p class="text-xs text-muted mb-1">Type</p>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style="background:rgba(220,38,38,0.1);color:#DC2626;">
+              <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="currentColor"/></svg>
+              ${item.type}
+            </span>
+          </div>
+          <div>
+            <p class="text-xs text-muted mb-1">State</p>
+            <span class="text-sm font-medium text-tx">${item.state}</span>
+          </div>
+          <div class="col-span-2">
+            <p class="text-xs text-muted mb-1.5">Assigned To</p>
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0"
+                style="background:${item.assignee.color};">${item.assignee.initials}</div>
+              <div>
+                <p class="text-sm font-medium text-tx">${item.assignee.name}</p>
+                <p class="text-xs text-muted">${item.assignee.email}</p>
+              </div>
+            </div>
+          </div>
+          <div>
+            <p class="text-xs text-muted mb-1">Priority</p>
+            <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold"
+              style="background:${priorityBg(item.priority)};color:${priorityColor(item.priority)};">
+              ${priorityLabel(item.priority)}
+            </span>
+          </div>
+          ${item.storyPoints != null ? `
+          <div>
+            <p class="text-xs text-muted mb-1">Story Points</p>
+            <span class="text-sm font-medium text-tx">${item.storyPoints}</span>
+          </div>` : ''}
+          ${item.remainingWork != null ? `
+          <div>
+            <p class="text-xs text-muted mb-1">Remaining Work</p>
+            <span class="text-sm font-medium text-tx">${item.remainingWork}h</span>
+          </div>` : ''}
+          <div class="col-span-2">
+            <p class="text-xs text-muted mb-1">Iteration</p>
+            <span class="text-xs font-mono text-tx bg-surface2 px-2 py-0.5 rounded">${item.iteration}</span>
+          </div>
+          <div class="col-span-2">
+            <p class="text-xs text-muted mb-1">Area Path</p>
+            <span class="text-xs font-mono text-tx bg-surface2 px-2 py-0.5 rounded">${item.area}</span>
+          </div>
+        </div>
+      </div>`;
+
+      /* ── Tags ── */
+      if (item.tags && item.tags.length) {
+        html += `<div class="drawer-section">
+          <p class="drawer-section-title">Tags</p>
+          <div class="flex flex-wrap gap-1.5">
+            ${item.tags.map(t => `
+              <span class="text-xs px-2.5 py-1 rounded-full bg-surface2 border border-border text-muted font-medium">${t}</span>
+            `).join('')}
+          </div>
+        </div>`;
+      }
+
+      /* ── Description ── */
+      if (item.description) {
+        html += `<div class="drawer-section">
+          <p class="drawer-section-title">Description</p>
+          <div class="text-sm text-tx leading-relaxed prose-content">${item.description}</div>
+        </div>`;
+      }
+
+      /* ── Acceptance Criteria ── */
+      if (item.acceptanceCriteria) {
+        html += `<div class="drawer-section">
+          <p class="drawer-section-title">Acceptance Criteria</p>
+          <div class="text-sm text-tx leading-relaxed prose-content">${item.acceptanceCriteria}</div>
+        </div>`;
+      }
+
+      /* ── Related Items ── */
+      if (item.relations && item.relations.length) {
+        html += `<div class="drawer-section">
+          <p class="drawer-section-title">Related Items (${item.relations.length})</p>
+          <div class="space-y-2">
+            ${item.relations.map(r => `
+              <div class="flex items-center justify-between bg-bg rounded-lg p-2.5 border border-border">
+                <div>
+                  <span class="text-xs text-muted">${r.type} &middot; </span>
+                  <span class="text-xs font-mono font-semibold text-primary">#${r.id}</span>
+                  <p class="text-sm text-tx mt-0.5">${r.title}</p>
+                </div>
+                <svg class="w-3.5 h-3.5 text-muted flex-shrink-0 ml-3" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            `).join('')}
+          </div>
+        </div>`;
+      }
+
+      /* ── Comments ── */
+      if (item.comments && item.comments.length) {
+        html += `<div class="drawer-section">
+          <p class="drawer-section-title">Comments (${item.comments.length})</p>
+          <div class="space-y-3">
+            ${item.comments.map(c => `
+              <div class="bg-bg rounded-xl p-3.5 border border-border">
+                <div class="flex items-center gap-2 mb-2">
+                  <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0"
+                    style="background:${c.color};">${c.initials}</div>
+                  <span class="text-xs font-semibold text-tx">${c.author}</span>
+                  <span class="text-xs text-muted ml-auto">${c.date}</span>
+                </div>
+                <p class="text-sm text-tx leading-relaxed">${c.text}</p>
+              </div>
+            `).join('')}
+          </div>
+        </div>`;
+      } else {
+        html += `<div class="drawer-section">
+          <p class="drawer-section-title">Comments</p>
+          <p class="text-sm text-muted">No comments yet.</p>
+        </div>`;
+      }
+
+      /* ── Timestamps ── */
+      html += `<div class="drawer-section">
+        <p class="drawer-section-title">Timestamps</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <p class="text-xs text-muted mb-1">Created</p>
+            <p class="text-xs text-tx">${item.createdAt}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted mb-1">Updated</p>
+            <p class="text-xs text-tx">${item.updatedAt}</p>
+          </div>
+        </div>
+      </div>`;
+
+      return html;
+    }
+
+    /* ── Demo toggle ── */
+    let demoShown = false;
+    function toggleDemo() {
+      demoShown = !demoShown;
+      document.getElementById('demo-messages').classList.toggle('hidden', !demoShown);
+      document.getElementById('empty-state').classList.toggle('hidden', demoShown);
+      document.getElementById('demo-btn').textContent = demoShown ? 'Show empty state' : 'Load demo conversation';
+      if (demoShown) setTimeout(() => {
+        const l = document.getElementById('message-list');
+        l.scrollTop = l.scrollHeight;
+      }, 50);
+    }
+
+    /* ── Chat helpers ── */
+    function usePrompt(el) {
+      const inp = document.getElementById('chat-input');
+      inp.value = el.dataset.prompt;
+      autoResize(inp);
+      inp.focus();
+    }
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    }
+    function handleKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    }
+    function sendMessage() {
+      const inp = document.getElementById('chat-input');
+      const text = inp.value.trim();
+      if (!text) return;
+      if (!demoShown) toggleDemo();
+      const list = document.getElementById('demo-messages');
+      const el = document.createElement('div');
+      el.className = 'flex justify-end animate-fade-in';
+      el.innerHTML = `<div class="flex items-end gap-2.5 max-w-lg">
+        <div class="bg-primary text-white px-4 py-3 shadow-user" style="border-radius:18px 18px 4px 18px;">
+          <p class="text-sm font-medium leading-relaxed">${escapeHtml(text)}</p>
+        </div>
+        <div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mb-0.5">VH</div>
+      </div>`;
+      list.appendChild(el);
+      inp.value = ''; inp.style.height = 'auto';
+      setTimeout(() => { const l = document.getElementById('message-list'); l.scrollTop = l.scrollHeight; }, 50);
+    }
+    function toggleTool(btn) {
+      const content = btn.closest('.tool-block').querySelector('.tool-content');
+      const chevron = btn.querySelector('.tool-chevron');
+      const open = !content.classList.contains('hidden');
+      content.classList.toggle('hidden', open);
+      chevron.style.transform = open ? '' : 'rotate(180deg)';
+    }
+    function escapeHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+  </script>
+</body>
+</html>

@@ -16,7 +16,6 @@ export function ChatInput() {
     if (!trimmed || disabled) return
     send(trimmed)
     setText('')
-    // Reset textarea height
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
   }
 
@@ -35,8 +34,8 @@ export function ChatInput() {
   }
 
   return (
-    <div className="flex-shrink-0 border-t border-ado-border bg-ado-surface px-4 py-3">
-      <div className="flex items-end gap-3 bg-ado-bg rounded-xl border border-ado-border focus-within:border-ado-accent/60 transition-colors px-4 py-3">
+    <div className="flex-shrink-0 border-t border-ado-border bg-ado-surface px-4 py-4">
+      <div className="flex items-end gap-3 bg-ado-surface2 border border-ado-border rounded-2xl px-4 py-3 focus-within:border-ado-accentLight focus-within:ring-2 focus-within:ring-ado-accent/10 transition-all">
         <textarea
           ref={textareaRef}
           value={text}
@@ -45,32 +44,33 @@ export function ChatInput() {
           onKeyDown={handleKey}
           placeholder={
             sessionID
-              ? 'Ask about Azure DevOps work items… (Enter to send, Shift+Enter for newline)'
+              ? 'Ask anything about your work… (Enter to send)'
               : 'Connecting to Opencode…'
           }
           disabled={disabled && !isTyping}
           rows={1}
-          className="flex-1 bg-transparent resize-none text-sm text-ado-text placeholder-ado-muted focus:outline-none leading-relaxed min-h-[24px] max-h-40 disabled:opacity-50"
+          className="flex-1 bg-transparent resize-none text-sm text-ado-text placeholder-ado-muted focus:outline-none leading-relaxed min-h-[24px] max-h-40 disabled:opacity-50 font-sans"
         />
         <button
           onClick={submit}
           disabled={disabled || !text.trim()}
-          className="flex-shrink-0 w-8 h-8 rounded-lg bg-ado-accent text-white flex items-center justify-center hover:bg-ado-accentHover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-shrink-0 w-8 h-8 rounded-xl bg-ado-accent text-white flex items-center justify-center hover:bg-ado-accentHover transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-ado-accent/40"
           aria-label="Send message"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-            />
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 12V2M3 6l4-4 4 4" stroke="white" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
       </div>
-      <p className="text-xs text-ado-muted mt-2 text-center">
-        Powered by Opencode · Azure DevOps MCP
-      </p>
+      <div className="flex items-center justify-between mt-2 px-1">
+        <p className="text-xs text-ado-muted">
+          Powered by <span className="font-medium text-ado-accent">WorkHub AI</span>
+        </p>
+        <p className="text-xs text-ado-muted">
+          <kbd className="bg-ado-surface border border-ado-border rounded px-1.5 py-0.5 text-xs font-mono">Shift+Enter</kbd>{' '}
+          for newline
+        </p>
+      </div>
     </div>
   )
 }

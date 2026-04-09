@@ -9,10 +9,12 @@ export function ChatWindow() {
 
   return (
     <div className="flex flex-col h-full w-full">
-      {/* Connection error banner */}
       {connectionError && (
-        <div className="flex-shrink-0 bg-ado-bug/10 border-b border-ado-bug/30 px-4 py-2 text-sm text-ado-bug flex items-center gap-2">
-          <span>⚠</span>
+        <div className="flex-shrink-0 bg-ado-bug/10 border-b border-ado-bug/20 px-4 py-2 text-sm text-ado-bug flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="flex-shrink-0">
+            <path d="M7 2l5.5 10H1.5L7 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+            <path d="M7 6v3M7 10.5v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
           <span>Cannot connect to Opencode: {connectionError}</span>
         </div>
       )}
