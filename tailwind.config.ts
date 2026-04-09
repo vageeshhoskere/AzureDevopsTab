@@ -6,15 +6,15 @@ export default {
     extend: {
       colors: {
         ado: {
-          bg: '#1b1b1f',
-          surface: '#252529',
-          surface2: '#2d2d31',
-          border: '#3e3e42',
+          bg: '#f5f5f7',
+          surface: '#ffffff',
+          surface2: '#ebebef',
+          border: '#d0d0d8',
           accent: '#0078d4',
           accentHover: '#106ebe',
           accentLight: '#1a8fe0',
-          text: '#d4d4d8',
-          muted: '#8c8c93',
+          text: '#1e1e26',
+          muted: '#5c5c68',
           bug: '#e81123',
           task: '#0078d4',
           story: '#107c10',

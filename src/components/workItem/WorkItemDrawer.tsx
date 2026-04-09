@@ -33,7 +33,7 @@ export function WorkItemDrawer() {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed right-0 top-0 h-full w-[42vw] min-w-[380px] max-w-[640px] bg-ado-surface border-l border-ado-border z-50 flex flex-col shadow-[-8px_0_32px_rgba(0,0,0,0.5)]"
+            className="fixed right-0 top-0 h-full w-[42vw] min-w-[380px] max-w-[640px] bg-ado-surface border-l border-ado-border z-50 flex flex-col shadow-[-8px_0_32px_rgba(0,0,0,0.10)]"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-ado-border flex-shrink-0">
