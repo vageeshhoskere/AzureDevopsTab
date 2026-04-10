@@ -3,7 +3,7 @@ import { immer } from 'zustand/middleware/immer'
 import { enableMapSet } from 'immer'
 import type { ChatMessage } from '../types/chat'
 import type { OcMessageWithParts, OcPartType } from '../types/opencode'
-import type { WorkItemDetail } from '../types/workItem'
+import type { WorkItem, WorkItemDetail } from '../types/workItem'
 import { extractWorkItems } from '../lib/workItemParser'
 
 // Enable Map/Set support in Immer for the work item detail cache
@@ -36,9 +36,10 @@ interface ChatSlice {
 interface DrawerSlice {
   drawerOpen: boolean
   selectedWorkItemID: number | null
+  selectedWorkItem: WorkItem | null
   workItemDetailCache: Map<number, WorkItemDetail>
 
-  openDrawer: (id: number) => void
+  openDrawer: (workItem: WorkItem) => void
   closeDrawer: () => void
   cacheWorkItemDetail: (detail: WorkItemDetail) => void
 }
@@ -155,11 +156,13 @@ export const useStore = create<AppStore>()(
     // ── Drawer ──
     drawerOpen: false,
     selectedWorkItemID: null,
+    selectedWorkItem: null,
     workItemDetailCache: new Map(),
 
-    openDrawer: (id) =>
+    openDrawer: (workItem) =>
       set((s) => {
-        s.selectedWorkItemID = id
+        s.selectedWorkItemID = workItem.id
+        s.selectedWorkItem = workItem
         s.drawerOpen = true
       }),
 

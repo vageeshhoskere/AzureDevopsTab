@@ -75,7 +75,7 @@ export function MessageList({ messages, isTyping, onPromptSelect, demoMode, onTo
             {messages.map((msg) => (
               <MessageBubble key={msg.id} message={msg} />
             ))}
-            {isTyping && <TypingIndicator />}
+            {isTyping && !messages.some(m => m.isStreaming) && <TypingIndicator />}
             <div ref={bottomRef} />
           </div>
         )}

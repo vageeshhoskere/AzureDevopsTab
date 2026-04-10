@@ -7,6 +7,7 @@ import type { WorkItemDetail } from '../types/workItem'
 export function useWorkItemDetail(workItemID: number | null) {
   const sessionID = useStore((s) => s.sessionID)
   const cacheWorkItemDetail = useStore((s) => s.cacheWorkItemDetail)
+  const selectedWorkItem = useStore((s) => s.selectedWorkItem)
   const cachedDetail = useStore((s) =>
     workItemID != null ? s.workItemDetailCache.get(workItemID) : undefined,
   )
@@ -34,9 +35,9 @@ export function useWorkItemDetail(workItemID: number | null) {
           .join('\n')
         const fallback: WorkItemDetail = {
           id: workItemID!,
-          title: `Work Item #${workItemID}`,
-          type: 'Task',
-          state: 'Unknown',
+          title: selectedWorkItem?.title ?? `Work Item #${workItemID}`,
+          type: selectedWorkItem?.type ?? 'Work Item',
+          state: selectedWorkItem?.state ?? 'Unknown',
           description: textContent || 'Details unavailable',
         }
         cacheWorkItemDetail(fallback)

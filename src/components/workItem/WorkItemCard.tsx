@@ -44,15 +44,15 @@ export function WorkItemCard({ workItem }: WorkItemCardProps) {
   const stateStyle = STATE_STYLE[workItem.state] ?? 'bg-ado-surface2 text-ado-muted border border-ado-border'
 
   return (
-    <button
-      onClick={() => openDrawer(workItem.id)}
-      className="group w-full text-left bg-ado-surface border border-ado-border rounded-xl overflow-hidden flex items-center hover:shadow-md hover:shadow-ado-accent/10 hover:-translate-y-px transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-ado-accent/30"
-    >
+    <div className="group w-full bg-ado-surface border border-ado-border rounded-xl overflow-hidden flex items-center hover:shadow-md hover:shadow-ado-accent/10 hover:-translate-y-px transition-all duration-150">
       {/* Left color strip */}
       <div className="w-1 self-stretch flex-shrink-0" style={{ background: stripColor }} />
 
-      {/* Content */}
-      <div className="flex-1 px-3 py-2.5 flex items-center gap-3 min-w-0">
+      {/* Content — clickable area opens drawer */}
+      <button
+        onClick={() => openDrawer(workItem)}
+        className="flex-1 px-3 py-2.5 flex items-center gap-3 min-w-0 text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-ado-accent/30 rounded-r-xl"
+      >
         <div className="flex-1 min-w-0">
           {/* Type + ID row */}
           <div className="flex items-center gap-1.5 mb-0.5">
@@ -80,7 +80,23 @@ export function WorkItemCard({ workItem }: WorkItemCardProps) {
             <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
-      </div>
-    </button>
+      </button>
+
+      {/* Open in ADO external link */}
+      {workItem.url && (
+        <a
+          href={workItem.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open in Azure DevOps"
+          onClick={(e) => e.stopPropagation()}
+          className="pr-3 pl-1 py-2.5 flex items-center text-ado-muted hover:text-ado-accent transition-colors flex-shrink-0"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M2 12L12 2M6 2h6v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </a>
+      )}
+    </div>
   )
 }

@@ -43,3 +43,5 @@ Thumbs.db
 .claude/memory.json
 .claude/settings.json
 .claude/history/
+.claude/memory/
+CLAUDE.md

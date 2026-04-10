@@ -7,6 +7,7 @@ import type { WorkItem } from '../../types/workItem'
 import { ToolCallBlock } from './ToolCallBlock'
 import { WorkItemCard } from '../workItem/WorkItemCard'
 import { markdownComponents } from '../../lib/markdown.tsx'
+import { stripDevTabBlock } from '../../lib/workItemParser'
 
 interface AssistantMessageProps {
   parts: OcPartType[]
@@ -38,7 +39,7 @@ export function AssistantMessage({ parts, workItems, isStreaming }: AssistantMes
                   rehypePlugins={[rehypeRaw, rehypeSanitize]}
                   components={markdownComponents}
                 >
-                  {part.text}
+                  {stripDevTabBlock(part.text)}
                 </ReactMarkdown>
               )
             }

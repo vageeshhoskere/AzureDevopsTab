@@ -1,8 +1,8 @@
-import DOMPurify from 'dompurify'
 import type { WorkItemDetail as WorkItemDetailType } from '../../types/workItem'
 import { WorkItemBadge } from './WorkItemBadge'
 import { Avatar } from '../ui/Avatar'
 import { Tag } from '../ui/Tag'
+import { RichText } from '../ui/RichText'
 
 interface WorkItemDetailProps {
   detail: WorkItemDetailType | undefined
@@ -177,20 +177,14 @@ export function WorkItemDetail({ detail, isLoading, error, onRetry }: WorkItemDe
       {/* Description */}
       {detail.description && (
         <Section title="Description">
-          <div
-            className="text-sm text-ado-text leading-relaxed prose max-w-none"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(detail.description) }}
-          />
+          <RichText content={detail.description} />
         </Section>
       )}
 
       {/* Acceptance Criteria */}
       {detail.acceptanceCriteria && (
         <Section title="Acceptance Criteria">
-          <div
-            className="text-sm text-ado-text leading-relaxed prose max-w-none"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(detail.acceptanceCriteria) }}
-          />
+          <RichText content={detail.acceptanceCriteria} />
         </Section>
       )}
 
@@ -232,10 +226,7 @@ export function WorkItemDetail({ detail, isLoading, error, onRetry }: WorkItemDe
                     {new Date(comment.createdAt).toLocaleDateString()}
                   </span>
                 </div>
-                <div
-                  className="text-sm text-ado-text leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(comment.text) }}
-                />
+                <RichText content={comment.text} />
               </div>
             ))}
           </div>

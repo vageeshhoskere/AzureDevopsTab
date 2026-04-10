@@ -1,7 +1,120 @@
 import type { OcPartType } from '../types/opencode'
-import type { WorkItem, WorkItemDetail, WorkItemPerson, WorkItemType } from '../types/workItem'
+import type { WorkItem, WorkItemDetail, WorkItemPerson } from '../types/workItem'
 
-// ─── ADO REST API shape (minimal) ─────────────────────────────────────────────
+// ─── Hidden block format ──────────────────────────────────────────────────────
+// The AI appends <!--DEVTAB:[...]-->  at the end of responses that reference
+// work items. We parse this block and strip it from the displayed text.
+
+const DEVTAB_BLOCK_RE = /<!--DEVTAB:(\[[\s\S]*?\])-->/
+
+interface DevTabItem {
+  id: number
+  type: string
+  title: string
+  state: string
+  assignee?: { displayName: string; uniqueName?: string; imageUrl?: string }
+  url?: string
+}
+
+function parseDevTabBlock(text: string): WorkItem[] {
+  const match = DEVTAB_BLOCK_RE.exec(text)
+  if (!match) return []
+  try {
+    const items = JSON.parse(match[1]) as DevTabItem[]
+    return items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      type: item.type,
+      state: item.state,
+      assignee: item.assignee
+        ? ({
+            displayName: item.assignee.displayName,
+            uniqueName: item.assignee.uniqueName,
+            imageUrl: item.assignee.imageUrl,
+          } satisfies WorkItemPerson)
+        : undefined,
+      url: item.url,
+    }))
+  } catch {
+    return []
+  }
+}
+
+/** Strip the hidden <!--DEVTAB:[...]-->  block from text before rendering. */
+export function stripDevTabBlock(text: string): string {
+  return text.replace(DEVTAB_BLOCK_RE, '').trimEnd()
+}
+
+/** Extract work items from message parts by reading the hidden DEVTAB block. */
+export function extractWorkItems(parts: OcPartType[]): WorkItem[] {
+  // Primary: DEVTAB block — accurate types straight from the AI
+  for (const part of parts) {
+    if (part.type !== 'text') continue
+    const items = parseDevTabBlock(part.text)
+    if (items.length > 0) {
+      console.log('[WorkHub] extractWorkItems: found DEVTAB block →', items)
+      return items
+    }
+  }
+
+  // Fallback: tool results containing ADO JSON — used when the AI hasn't yet
+  // started emitting DEVTAB blocks (e.g. first session, instruction ignored)
+  for (const part of parts) {
+    if (part.type !== 'tool' || part.state.status !== 'completed') continue
+    try {
+      const items = extractWorkItemsFromAdoJson(JSON.parse(part.state.output))
+      if (items.length > 0) {
+        console.log('[WorkHub] extractWorkItems: DEVTAB missing, fell back to tool result →', items)
+        return items
+      }
+    } catch { /* skip */ }
+  }
+
+  console.log('[WorkHub] extractWorkItems: no work items found in parts', parts)
+  return []
+}
+
+function extractWorkItemsFromAdoJson(data: unknown): WorkItem[] {
+  if (!data || typeof data !== 'object') return []
+  const obj = data as Record<string, unknown>
+
+  if ('value' in obj && Array.isArray(obj.value)) {
+    return (obj.value as AdoRawWorkItem[]).map(mapDetail).map(toWorkItem)
+  }
+  if ('id' in obj && 'fields' in obj) {
+    return [toWorkItem(mapDetail(obj as AdoRawWorkItem))]
+  }
+  if (Array.isArray(data)) {
+    const items: WorkItem[] = []
+    for (const entry of data as unknown[]) {
+      if (!entry || typeof entry !== 'object') continue
+      const e = entry as Record<string, unknown>
+      if (e.type === 'text' && typeof e.text === 'string') {
+        try { items.push(...extractWorkItemsFromAdoJson(JSON.parse(e.text))) } catch { /* skip */ }
+      } else if ('id' in e && 'fields' in e) {
+        items.push(toWorkItem(mapDetail(e as AdoRawWorkItem)))
+      }
+    }
+    return items
+  }
+  return []
+}
+
+function toWorkItem(detail: WorkItemDetail): WorkItem {
+  return {
+    id: detail.id,
+    title: detail.title,
+    type: detail.type,
+    state: detail.state,
+    assignee: detail.assignee,
+    url: detail.url,
+  }
+}
+
+// ─── Detail drawer parsing ────────────────────────────────────────────────────
+// When the user opens a work item drawer, a dedicated fetch is made asking the
+// AI for full details. The AI returns structured ADO JSON (in a code block or
+// tool result) which we parse here.
 
 interface AdoPersonRef {
   displayName: string
@@ -32,40 +145,20 @@ interface AdoRawWorkItem {
   _links?: { html?: { href: string } }
 }
 
-interface AdoListResponse {
-  value: AdoRawWorkItem[]
-  count?: number
-}
-
-// ─── Mapping helpers ──────────────────────────────────────────────────────────
-
-function mapPerson(ref: AdoPersonRef | undefined): WorkItemPerson | undefined {
-  if (!ref) return undefined
-  return {
-    displayName: ref.displayName,
-    uniqueName: ref.uniqueName,
-    imageUrl: ref._links?.avatar?.href,
-  }
-}
-
-function mapWorkItem(raw: AdoRawWorkItem): WorkItem {
-  return {
-    id: raw.id,
-    title: raw.fields['System.Title'] ?? `Work Item #${raw.id}`,
-    type: (raw.fields['System.WorkItemType'] ?? 'Task') as WorkItemType,
-    state: raw.fields['System.State'] ?? 'Unknown',
-    assignee: mapPerson(raw.fields['System.AssignedTo']),
-    url: raw._links?.html?.href,
-  }
-}
-
-function mapWorkItemDetail(raw: AdoRawWorkItem): WorkItemDetail {
-  const base = mapWorkItem(raw)
+function mapDetail(raw: AdoRawWorkItem): WorkItemDetail {
+  const assigneeRef = raw.fields['System.AssignedTo']
   const tags = raw.fields['System.Tags']
     ? raw.fields['System.Tags'].split(';').map((t) => t.trim()).filter(Boolean)
     : undefined
   return {
-    ...base,
+    id: raw.id,
+    title: raw.fields['System.Title'] ?? `Work Item #${raw.id}`,
+    type: raw.fields['System.WorkItemType'] ?? 'Work Item',
+    state: raw.fields['System.State'] ?? 'Unknown',
+    assignee: assigneeRef
+      ? { displayName: assigneeRef.displayName, uniqueName: assigneeRef.uniqueName, imageUrl: assigneeRef._links?.avatar?.href }
+      : undefined,
+    url: raw._links?.html?.href,
     description: raw.fields['System.Description'],
     acceptanceCriteria: raw.fields['Microsoft.VSTS.Common.AcceptanceCriteria'],
     priority: raw.fields['Microsoft.VSTS.Common.Priority'],
@@ -79,196 +172,68 @@ function mapWorkItemDetail(raw: AdoRawWorkItem): WorkItemDetail {
   }
 }
 
-// ─── Tool output parser ───────────────────────────────────────────────────────
+function findDetailInJson(data: unknown, targetId: number): WorkItemDetail | null {
+  if (!data || typeof data !== 'object') return null
+  const obj = data as Record<string, unknown>
 
-function parseToolOutput(output: string): WorkItem[] {
-  try {
-    const data = JSON.parse(output) as unknown
-    if (!data || typeof data !== 'object') return []
-
-    // ADO list response: { value: [...] }
-    if ('value' in data && Array.isArray((data as AdoListResponse).value)) {
-      return (data as AdoListResponse).value.map(mapWorkItem)
-    }
-
-    // Single ADO work item: { id, fields }
-    if ('id' in data && 'fields' in data) {
-      return [mapWorkItem(data as AdoRawWorkItem)]
-    }
-
-    // MCP wrapper: { workItems: [...] }
-    if ('workItems' in data && Array.isArray((data as { workItems: AdoRawWorkItem[] }).workItems)) {
-      return (data as { workItems: AdoRawWorkItem[] }).workItems.map(mapWorkItem)
-    }
-
-    return []
-  } catch {
-    return []
+  // Single work item: { id, fields }
+  if ('id' in obj && 'fields' in obj && (obj as AdoRawWorkItem).id === targetId) {
+    return mapDetail(obj as AdoRawWorkItem)
   }
-}
 
-function parseToolOutputDetail(output: string, targetId: number): WorkItemDetail | null {
-  try {
-    const data = JSON.parse(output) as unknown
-    if (!data || typeof data !== 'object') return null
-
-    if ('id' in data && (data as AdoRawWorkItem).id === targetId) {
-      return mapWorkItemDetail(data as AdoRawWorkItem)
-    }
-
-    if ('value' in data && Array.isArray((data as AdoListResponse).value)) {
-      const match = (data as AdoListResponse).value.find((v) => v.id === targetId)
-      return match ? mapWorkItemDetail(match) : null
-    }
-  } catch {
-    // ignore
+  // List response: { value: [...] }
+  if ('value' in obj && Array.isArray(obj.value)) {
+    const match = (obj.value as AdoRawWorkItem[]).find((v) => v.id === targetId)
+    if (match) return mapDetail(match)
   }
+
+  // Array of items or MCP content parts
+  if (Array.isArray(data)) {
+    for (const entry of data as unknown[]) {
+      if (!entry || typeof entry !== 'object') continue
+      const e = entry as Record<string, unknown>
+      if (e.type === 'text' && typeof e.text === 'string') {
+        try { const r = findDetailInJson(JSON.parse(e.text), targetId); if (r) return r } catch { /* skip */ }
+        continue
+      }
+      if ('id' in e && 'fields' in e && (e as AdoRawWorkItem).id === targetId) {
+        return mapDetail(e as AdoRawWorkItem)
+      }
+    }
+  }
+
   return null
 }
 
-// ─── Markdown table parser ────────────────────────────────────────────────────
-
-const WORK_ITEM_TYPE_KEYWORDS = ['Bug', 'Task', 'User Story', 'Story', 'Epic', 'Feature', 'Issue']
-
-function parseMarkdownTable(text: string): WorkItem[] {
-  const items: WorkItem[] = []
-  const lines = text.split('\n')
-
-  // Find header row
-  let headerIdx = -1
-  let colMap: { id: number; title: number; type: number; state: number; assignee: number } | null =
-    null
-
-  for (let i = 0; i < lines.length - 1; i++) {
-    const line = lines[i].trim()
-    if (!line.startsWith('|')) continue
-    const cols = line
-      .split('|')
-      .map((c) => c.trim().toLowerCase())
-      .filter(Boolean)
-
-    const idIdx = cols.findIndex((c) => c === 'id' || c === '#' || c === 'work item id')
-    const titleIdx = cols.findIndex((c) => c.includes('title') || c === 'name')
-    const typeIdx = cols.findIndex((c) => c.includes('type') || c === 'kind')
-    const stateIdx = cols.findIndex((c) => c === 'state' || c === 'status')
-    const assigneeIdx = cols.findIndex((c) => c.includes('assign'))
-
-    if (idIdx >= 0 && titleIdx >= 0) {
-      headerIdx = i
-      colMap = {
-        id: idIdx,
-        title: titleIdx,
-        type: typeIdx >= 0 ? typeIdx : -1,
-        state: stateIdx >= 0 ? stateIdx : -1,
-        assignee: assigneeIdx >= 0 ? assigneeIdx : -1,
-      }
-      break
-    }
-  }
-
-  if (headerIdx < 0 || !colMap) return items
-
-  // Skip separator row (the --- row)
-  const startRow = headerIdx + 2
-
-  for (let i = startRow; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line.startsWith('|')) break
-    const cols = line
-      .split('|')
-      .map((c) => c.trim())
-      .filter(Boolean)
-
-    const idRaw = cols[colMap.id] ?? ''
-    const idNum = parseInt(idRaw.replace(/[^0-9]/g, ''), 10)
-    if (isNaN(idNum)) continue
-
-    const title = cols[colMap.title] ?? ''
-    const type = colMap.type >= 0 ? (cols[colMap.type] ?? 'Task') : 'Task'
-    const state = colMap.state >= 0 ? (cols[colMap.state] ?? 'Active') : 'Active'
-    const assigneeRaw = colMap.assignee >= 0 ? cols[colMap.assignee] : undefined
-    const assignee = assigneeRaw
-      ? { displayName: assigneeRaw }
-      : undefined
-
-    items.push({ id: idNum, title, type, state, assignee })
-  }
-
-  return items
-}
-
-// ─── Inline #ID reference parser ─────────────────────────────────────────────
-
-function parseInlineRefs(text: string): WorkItem[] {
-  const items: WorkItem[] = []
-  // Match sentences containing a work item type keyword AND a #NNNN ref
-  const sentenceRegex = /[^.!?\n]*#(\d{3,6})[^.!?\n]*/gi
-  let match: RegExpExecArray | null
-
-  while ((match = sentenceRegex.exec(text)) !== null) {
-    const sentence = match[0]
-    const id = parseInt(match[1], 10)
-    const typeFound = WORK_ITEM_TYPE_KEYWORDS.find((kw) =>
-      sentence.toLowerCase().includes(kw.toLowerCase()),
-    )
-    if (!typeFound) continue
-
-    // Extract a rough title: text immediately after #ID
-    const afterId = sentence.slice(sentence.indexOf(`#${match[1]}`) + match[1].length + 1).trim()
-    const title = afterId.split(/[,;]/)[0].trim() || `Work Item #${id}`
-
-    items.push({ id, title, type: typeFound, state: 'Active' })
-  }
-
-  return items
-}
-
-// ─── Public API ───────────────────────────────────────────────────────────────
-
-/** Extract work items from an array of message parts (compact form for chat cards). */
-export function extractWorkItems(parts: OcPartType[]): WorkItem[] {
-  const map = new Map<number, WorkItem>()
-
-  // Pass 1: tool results (highest priority)
+/**
+ * Extract full work item detail from the parts returned by a detail drawer
+ * fetch. Looks in tool results first, then JSON code blocks in text parts.
+ */
+export function extractWorkItemDetail(parts: OcPartType[], targetId: number): WorkItemDetail | null {
+  // Tool results
   for (const part of parts) {
-    if (part.type === 'tool' && part.state.status === 'completed') {
-      for (const item of parseToolOutput(part.state.output)) {
-        map.set(item.id, item)
-      }
-    }
+    if (part.type !== 'tool' || part.state.status !== 'completed') continue
+    try {
+      const r = findDetailInJson(JSON.parse(part.state.output), targetId)
+      if (r) return r
+    } catch { /* skip */ }
   }
 
-  // Pass 2: markdown tables in text parts
+  // JSON in text parts (direct or inside code fences)
   for (const part of parts) {
-    if (part.type === 'text') {
-      for (const item of parseMarkdownTable(part.text)) {
-        if (!map.has(item.id)) map.set(item.id, item)
-      }
+    if (part.type !== 'text') continue
+    const candidates: unknown[] = []
+    try { candidates.push(JSON.parse(part.text.trim())) } catch { /* skip */ }
+    const fence = /```(?:json)?\s*([\s\S]*?)```/g
+    let m: RegExpExecArray | null
+    while ((m = fence.exec(part.text)) !== null) {
+      try { candidates.push(JSON.parse(m[1].trim())) } catch { /* skip */ }
+    }
+    for (const c of candidates) {
+      const r = findDetailInJson(c, targetId)
+      if (r) return r
     }
   }
 
-  // Pass 3: inline #ID refs (fallback)
-  for (const part of parts) {
-    if (part.type === 'text') {
-      for (const item of parseInlineRefs(part.text)) {
-        if (!map.has(item.id)) map.set(item.id, item)
-      }
-    }
-  }
-
-  return Array.from(map.values())
-}
-
-/** Extract full work item detail from parts (used in detail drawer fetch). */
-export function extractWorkItemDetail(
-  parts: OcPartType[],
-  targetId: number,
-): WorkItemDetail | null {
-  for (const part of parts) {
-    if (part.type === 'tool' && part.state.status === 'completed') {
-      const detail = parseToolOutputDetail(part.state.output, targetId)
-      if (detail) return detail
-    }
-  }
   return null
 }

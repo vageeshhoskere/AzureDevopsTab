@@ -7,6 +7,15 @@ export function WorkItemDrawer() {
   const drawerOpen = useStore((s) => s.drawerOpen)
   const selectedWorkItemID = useStore((s) => s.selectedWorkItemID)
   const closeDrawer = useStore((s) => s.closeDrawer)
+  // URL fallback: look up work item URL from chat messages while detail is loading
+  const workItemUrl = useStore((s) => {
+    if (selectedWorkItemID === null) return undefined
+    for (const msg of s.messages) {
+      const found = msg.workItems.find((w) => w.id === selectedWorkItemID)
+      if (found?.url) return found.url
+    }
+    return undefined
+  })
 
   const { detail, isLoading, error, refetch } = useWorkItemDetail(selectedWorkItemID)
 
@@ -51,9 +60,9 @@ export function WorkItemDrawer() {
                 )}
               </div>
               <div className="flex items-center gap-3 flex-shrink-0 mt-0.5">
-                {detail?.url && (
+                {(detail?.url ?? workItemUrl) && (
                   <a
-                    href={detail.url}
+                    href={detail?.url ?? workItemUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs font-medium text-ado-accent hover:text-ado-accentHover transition-colors flex items-center gap-1"
