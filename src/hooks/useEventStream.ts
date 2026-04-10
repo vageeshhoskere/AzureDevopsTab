@@ -41,18 +41,23 @@ export function useEventStream(sessionID: string | null) {
       const infoSessionID = (info as { sessionID?: string }).sessionID
       if (infoSessionID && infoSessionID !== sessionRef.current) return
 
-      // Create a placeholder message for streaming assistant replies
-      if (info.role === 'assistant' && !info.time.completed) {
-        setAssistantTyping(true)
-        addMessage({
-          id: info.id,
-          sessionID: infoSessionID ?? sessionRef.current ?? '',
-          role: 'assistant',
-          parts: [],
-          workItems: [],
-          createdAt: info.time.created,
-          isStreaming: true,
-        })
+      if (info.role === 'assistant') {
+        if (!info.time.completed) {
+          // Create a placeholder message for streaming assistant replies
+          setAssistantTyping(true)
+          addMessage({
+            id: info.id,
+            sessionID: infoSessionID ?? sessionRef.current ?? '',
+            role: 'assistant',
+            parts: [],
+            workItems: [],
+            createdAt: info.time.created,
+            isStreaming: true,
+          })
+        } else {
+          // SSE signals the message is fully complete — clear the typing indicator
+          setAssistantTyping(false)
+        }
       }
     })
 

@@ -45,18 +45,6 @@ export function AssistantMessage({ parts, workItems, isStreaming }: AssistantMes
             if (part.type === 'tool') {
               return <ToolCallBlock key={part.id} part={part} />
             }
-            if (part.type === 'reasoning' && part.text) {
-              return (
-                <details key={part.id} className="my-2">
-                  <summary className="text-xs text-ado-muted cursor-pointer hover:text-ado-text select-none">
-                    Reasoning
-                  </summary>
-                  <p className="mt-2 text-xs text-ado-muted italic leading-relaxed pl-3 border-l-2 border-ado-border">
-                    {part.text}
-                  </p>
-                </details>
-              )
-            }
             return null
           })}
         </div>
