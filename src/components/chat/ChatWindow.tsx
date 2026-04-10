@@ -1,11 +1,27 @@
+import { useState, useEffect } from 'react'
 import { useStore } from '../../store'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
+import { DEMO_MESSAGES, DEMO_WORK_ITEM_DETAILS } from '../../data/demoData'
 
 export function ChatWindow() {
   const messages = useStore((s) => s.messages)
   const isTyping = useStore((s) => s.isAssistantTyping)
   const connectionError = useStore((s) => s.connectionError)
+  const cacheWorkItemDetail = useStore((s) => s.cacheWorkItemDetail)
+  const [inputText, setInputText] = useState('')
+  const [isDemoMode, setIsDemoMode] = useState(false)
+
+  const displayMessages = isDemoMode ? DEMO_MESSAGES : messages
+
+  // Populate work item detail cache when entering demo mode
+  useEffect(() => {
+    if (isDemoMode) {
+      Object.entries(DEMO_WORK_ITEM_DETAILS).forEach(([_, detail]) => {
+        cacheWorkItemDetail(detail)
+      })
+    }
+  }, [isDemoMode, cacheWorkItemDetail])
 
   return (
     <div className="flex flex-col h-full w-full">
@@ -19,8 +35,14 @@ export function ChatWindow() {
         </div>
       )}
 
-      <MessageList messages={messages} isTyping={isTyping} />
-      <ChatInput />
+      <MessageList
+        messages={displayMessages}
+        isTyping={isDemoMode ? false : isTyping}
+        onPromptSelect={setInputText}
+        demoMode={isDemoMode}
+        onToggleDemo={() => setIsDemoMode(!isDemoMode)}
+      />
+      <ChatInput value={inputText} onChange={setInputText} />
     </div>
   )
 }

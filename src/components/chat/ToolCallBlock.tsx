@@ -74,7 +74,7 @@ export function ToolCallBlock({ part }: ToolCallBlockProps) {
 
       {expanded && isDone && (
         <div className="px-4 pb-3 border-t border-ado-border">
-          <pre className="mt-2 text-ado-muted overflow-x-auto whitespace-pre-wrap break-all text-[11px] max-h-48 font-mono leading-relaxed">
+          <pre className="mt-2 text-ado-muted overflow-x-auto whitespace-pre-wrap break-all text-xs max-h-48 font-mono leading-relaxed">
             {(() => {
               try {
                 return JSON.stringify(JSON.parse(state.output), null, 2)
@@ -88,7 +88,7 @@ export function ToolCallBlock({ part }: ToolCallBlockProps) {
 
       {expanded && isError && (
         <div className="px-4 pb-3 border-t border-ado-border">
-          <p className="mt-2 text-ado-bug text-[11px]">{state.error}</p>
+          <p className="mt-2 text-ado-bug text-xs">{state.error}</p>
         </div>
       )}
     </div>

@@ -24,8 +24,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['"DM Sans"', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['Cascadia Code', 'Consolas', 'monospace'],
+        sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
+        mono: ['"Cascadia Code"', 'Consolas', 'monospace'],
       },
       animation: {
         'slide-in': 'slideIn 0.3s ease-out',
@@ -38,7 +38,7 @@ export default {
           to: { transform: 'translateX(0)' },
         },
         fadeIn: {
-          from: { opacity: '0', transform: 'translateY(6px)' },
+          from: { opacity: '0', transform: 'translateY(8px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
         dotBounce: {

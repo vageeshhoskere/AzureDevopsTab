@@ -23,7 +23,7 @@ export function AppShell() {
   return (
     <div className="h-screen w-screen bg-ado-bg flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex-shrink-0 h-13 border-b border-ado-border bg-ado-surface flex items-center px-6 gap-3" style={{ height: '52px' }}>
+      <header className="flex-shrink-0 border-b border-ado-border bg-ado-surface flex items-center justify-between px-6 py-3">
         {/* Logo */}
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg gradient-avatar flex items-center justify-center flex-shrink-0">
@@ -31,22 +31,22 @@ export function AppShell() {
               <path d="M3 8h10M8 3v10M5 5l6 6M11 5l-6 6" stroke="white" strokeWidth="1.75" strokeLinecap="round" />
             </svg>
           </div>
-          <span className="text-base font-semibold text-ado-accent tracking-tight">WorkHub</span>
+          <span className="text-lg font-semibold text-ado-accent tracking-tight">WorkHub</span>
         </div>
 
-        {/* Session badge */}
-        {sessionID && (
-          <div className="ml-auto flex items-center gap-1.5 bg-ado-surface2 border border-ado-border rounded-full px-3 py-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-ado-story" />
-            <span className="text-xs text-ado-muted font-medium font-mono">
-              {sessionID.slice(0, 8)}
-            </span>
+        {/* Session badge + User avatar */}
+        <div className="flex items-center gap-3">
+          {sessionID && (
+            <div className="flex items-center gap-1.5 bg-ado-surface2 border border-ado-border rounded-full px-3 py-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-ado-story" />
+              <span className="text-xs text-ado-muted font-medium font-mono">
+                {sessionID.slice(0, 8)}
+              </span>
+            </div>
+          )}
+          <div className="w-8 h-8 rounded-full bg-ado-accent flex items-center justify-center text-white text-xs font-semibold select-none flex-shrink-0">
+            VH
           </div>
-        )}
-
-        {/* User avatar */}
-        <div className="w-8 h-8 rounded-full gradient-avatar flex items-center justify-center text-white text-xs font-semibold select-none flex-shrink-0">
-          AI
         </div>
       </header>
 

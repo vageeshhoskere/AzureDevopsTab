@@ -1,9 +1,13 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
+import { enableMapSet } from 'immer'
 import type { ChatMessage } from '../types/chat'
 import type { OcMessageWithParts, OcPartType } from '../types/opencode'
 import type { WorkItemDetail } from '../types/workItem'
 import { extractWorkItems } from '../lib/workItemParser'
+
+// Enable Map/Set support in Immer for the work item detail cache
+enableMapSet()
 
 // ─── Chat slice ───────────────────────────────────────────────────────────────
 
