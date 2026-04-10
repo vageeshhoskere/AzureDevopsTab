@@ -59,10 +59,6 @@ export function AssistantMessage({ parts, workItems, isStreaming }: AssistantMes
             }
             return null
           })}
-
-          {isStreaming && parts.length === 0 && (
-            <span className="text-ado-muted text-sm">…</span>
-          )}
         </div>
 
         {/* Work item cards */}

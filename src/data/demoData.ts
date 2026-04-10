@@ -100,25 +100,6 @@ Bug #4821 is the highest priority — it's blocking users from logging in on Saf
     workItems: [],
     createdAt: now - 5000,
   },
-  {
-    id: '4',
-    sessionID: 'demo-session',
-    role: 'assistant',
-    parts: [
-      {
-        id: 'p5',
-        type: 'tool',
-        callID: 'call-2',
-        tool: 'get_work_item_detail',
-        state: {
-          status: 'pending',
-          input: { workItemID: 4821 },
-        },
-      } as any,
-    ],
-    workItems: [],
-    createdAt: now - 2000,
-  },
 ]
 
 export const DEMO_WORK_ITEM_DETAILS: Record<number, WorkItemDetail> = {
